@@ -4,24 +4,23 @@ from flask import Flask
 import threading
 import os
 
-# --- 1. CẤU HÌNH THÔNG SỐ (GIỮ NGUYÊN) ---
+# --- CẤU HÌNH ---
 TELEGRAM_TOKEN = '8524133533:AAFdCN27kW0fuTUPEOd-v0mlGudCBRe4M9I'
 GEMINI_API_KEY = 'AIzaSyDuK-XTxbya5eh-PnNJISDBdbqlamRh3as'
 MY_CHAT_ID = 5101441540
 
-# --- 2. FIX LỖI PORT SCAN (ĐỂ RENDER BÁO LIVE) ---
+# --- FIX LỖI RENDER (MỞ CỔNG WEB) ---
 app = Flask('')
 @app.route('/')
-def home(): return "Bot Onus is Running!"
+def home(): return "Bot is live!"
 
-def run_web():
+def run():
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
-# --- 3. CẤU HÌNH AI (FIX LỖI 404) ---
+# --- FIX LỖI 404 (DÙNG MODEL LATEST) ---
 genai.configure(api_key=GEMINI_API_KEY)
-# Sử dụng model flash là bản ổn định nhất cho API tự do
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
@@ -29,21 +28,17 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 def handle_message(message):
     if message.chat.id != MY_CHAT_ID: return
     try:
-        waiting_msg = bot.reply_to(message, "🔄 AI đang soi kèo, đợi chút...")
-        # Lệnh điều hướng chuyên sâu cho AI
-        prompt = (
-            f"Bạn là chuyên gia phân tích kỹ thuật Crypto sàn ONUS. "
-            f"Hãy phân tích và đưa ra kèo (Entry, TP, SL) cho: {message.text}"
-        )
-        response = model.generate_content(prompt)
+        waiting_msg = bot.reply_to(message, "🔄 AI ONUS đang soi kèo...")
+        response = model.generate_content(f"Phân tích kỹ thuật chuyên sâu cho: {message.text}")
         bot.edit_message_text(chat_id=MY_CHAT_ID, message_id=waiting_msg.message_id, text=response.text)
     except Exception as e:
         bot.send_message(MY_CHAT_ID, f"❌ Lỗi: {str(e)}")
 
 if __name__ == "__main__":
-    # Chạy Web giả lập ở luồng phụ
-    threading.Thread(target=run_web).start()
-    print("--- BOT STARTED ---")
-    # Khởi động Bot với chế độ xóa bỏ các kết nối cũ (Fix lỗi 409)
+    # Chạy web server giả lập để Render báo Live
+    threading.Thread(target=run).start()
+    
+    # FIX LỖI 409: Xóa mọi kết nối (webhook) cũ đang kẹt
     bot.remove_webhook()
+    print("--- BOT ĐÃ SẴN SÀNG ---")
     bot.infinity_polling(skip_pending=True)
